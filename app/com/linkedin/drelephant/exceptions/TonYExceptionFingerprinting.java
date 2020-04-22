@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -55,9 +56,13 @@ public class TonYExceptionFingerprinting {
   private HashSet<String> exceptionIdSet = new HashSet<>();
   @Getter
   private List<ExceptionInfo> _exceptionInfoList = new ArrayList<>();
+  private String exceptionCategoryName = null;
+  private static final String ERROR_CLASSIFICATION = "CANNOT CLASSIFY DATA";
+  private static final String UNKNOWN_CLASSIFICATION = "USER_ERROR/UNKNOWN";
+  private static final String APPLICATION_TYPE = "tony";
 
   private static final Logger logger = Logger.getLogger(TonYExceptionFingerprinting.class);
-
+  private static final boolean isDebugEnabled = logger.isDebugEnabled();
   public TonYExceptionFingerprinting(AnalyticJob analyticJob, AppResult appResult) {
     this._analyticJob = analyticJob;
     this._appResult = appResult;
@@ -74,6 +79,7 @@ public class TonYExceptionFingerprinting {
     fetchLogData();
     collectJobDiagnosticsInfoFromRM();
     collectExceptionInfoFromLogData();
+    exceptionCategoryName = classifyException();
     saveExceptionFingerprintingData();
   }
 
@@ -259,6 +265,7 @@ public class TonYExceptionFingerprinting {
       }
       tonyJobException.exceptionType = ExceptionInfo.ExceptionSource.DRIVER.toString();
       tonyJobException.exceptionLog = exceptionsTrace;
+      tonyJobException.classification = exceptionCategoryName;
       tonyJobException.save();
       jobsExceptionFingerPrinting.save();
     }
@@ -361,4 +368,44 @@ public class TonYExceptionFingerprinting {
     }
     return false;
   }
+  /**
+   *
+   * @return Return the classification for the exception .
+   */
+  public String classifyException() {
+    if (EXCEPTION_CATEGORIZATION_CONFIGURATION == null || this._exceptionInfoList == null
+        || this._exceptionInfoList.size() == 0) {
+      logger.error(" Necessary information is not available for classifying exceptions ");
+      return ERROR_CLASSIFICATION;
+    }
+    List<ExceptionCategorizationData> exceptionCategorizationData =
+        EXCEPTION_CATEGORIZATION_CONFIGURATION.getValue().getExceptionCategorizationData().get(APPLICATION_TYPE);
+    if (exceptionCategorizationData == null || exceptionCategorizationData.size() == 0) {
+      logger.error(" No exception categorization rules for tony application ");
+      return ERROR_CLASSIFICATION;
+    }
+    String exceptionCategoryName = UNKNOWN_CLASSIFICATION;
+    for (ExceptionCategorizationData exceptionData : exceptionCategorizationData) {
+      List<String> searchPattern = exceptionData.getRuleTriggers();
+      if (isDebugEnabled) {
+        logger.debug(" Search pattern " + exceptionData.getRuleTriggers());
+      }
+      for (ExceptionInfo exceptionInfo : this._exceptionInfoList) {
+        for (String pattern : searchPattern) {
+          if (isDebugEnabled) {
+            logger.debug(" " + pattern + " " + exceptionInfo.getExceptionStackTrace());
+          }
+          if (exceptionInfo.getExceptionStackTrace().toLowerCase().contains(pattern)) {
+            exceptionCategoryName = exceptionData.getCategory();
+            logger.info(
+                " Class of the exception " + exceptionCategoryName + "\t because " + exceptionInfo.getExceptionStackTrace());
+            return exceptionCategoryName;
+          }
+        }
+      }
+    }
+    return exceptionCategoryName;
+  }
+
+
 }

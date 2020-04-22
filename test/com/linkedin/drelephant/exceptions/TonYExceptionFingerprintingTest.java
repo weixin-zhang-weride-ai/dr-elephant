@@ -43,6 +43,7 @@ import play.test.FakeApplication;
 import play.test.Helpers;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.linkedin.drelephant.exceptions.util.ExceptionUtils.ConfigurationBuilder.*;
 import static common.TestConstants.*;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.verify;
@@ -170,6 +171,7 @@ public class TonYExceptionFingerprintingTest {
           .getExceptionStackTrace());
       assertEquals("Container exited with a non-zero exit code 1. Error file: prelaunch.err.",
           exceptionInfos.get(1).getExceptionName());
+      assertEquals("USER_ERROR/FILE_NOT_FOUND", tonyEF.classifyException());
     });
   }
 
@@ -202,6 +204,7 @@ public class TonYExceptionFingerprintingTest {
           exceptionInfos.get(4).getExceptionName());
       assertEquals(ExceptionUtils.ConfigurationBuilder.NUMBER_OF_STACKTRACE_LINE.getValue() + 1,
           (exceptionInfos.get(4).getExceptionStackTrace().split("\n")).length);
+      assertEquals("USER_ERROR/FILE_NOT_FOUND", tonyEF.classifyException());
     });
   }
 
@@ -220,6 +223,7 @@ public class TonYExceptionFingerprintingTest {
           getFakeAnalyticalJob(TEST_APPLICATION_ID_3, TEST_JOB_NAME_3, false, TEST_AM_LOG_CONTAINER_URL_3,
               "Exit with status code 1.");
       AppResult fakeAppResult = getFakeAppResult(TEST_APPLICATION_ID_3, TEST_JOB_EXEC_URL_3, TEST_WORKFLOW_URL_3);
+
       TonYExceptionFingerprinting tonYExceptionFingerprintingSpy = spy(new TonYExceptionFingerprinting(fakeJob, fakeAppResult));
       List<ExceptionInfo> mockExceptionInfoListForAzkaban = new ArrayList<>();
       mockExceptionInfoListForAzkaban.add(getMockExceptionInfo("exceptionName_1",
@@ -238,6 +242,7 @@ public class TonYExceptionFingerprintingTest {
         assertEquals("log_1", results.get(1).getExceptionStackTrace());
         assertEquals("log_2", results.get(2).getExceptionStackTrace());
         assertEquals("Job Diagnostics: \n" + fakeJob.getJobDiagnostics(), results.get(0).getExceptionStackTrace());
+        assertEquals("USER_ERROR/UNKNOWN", tonYExceptionFingerprintingSpy.classifyException());
       } catch (Exception ex) {
         logger.info("Exception while mocking method getAzkabanExceptionInfoResults");
       }
@@ -276,11 +281,81 @@ public class TonYExceptionFingerprintingTest {
         Log with containerId container_e42_123456789568_34567_01_000008 will be present in result and not with containerId
         container_e42_123456789568_34567_01_000009
        */
-      List<ExceptionInfo> similarLogList = exceptionInfos.stream().filter(el -> el.getExceptionStackTrace().contains(
-          "container_e42_123456789568_34567_01_000009")).collect(Collectors.toList());
+      List<ExceptionInfo> similarLogList = exceptionInfos.stream()
+          .filter(el -> el.getExceptionStackTrace().contains("container_e42_123456789568_34567_01_000009"))
+          .collect(Collectors.toList());
       assertEquals(0, similarLogList.size());
     });
   }
+
+  @Test
+  public void testTonyCategorizationInfraError() {
+    ExceptionInfo exceptionInfo = new ExceptionInfo(1, "__exit__\n" + "    c_api.TF_GetCode(self.status.status))\n"
+        + "tensorflow.python.framework.errors_impl.UnknownError: Could not start gRPC server\n",
+        "__exit__\n" + "    c_api.TF_GetCode(self.status.status))\n"
+            + "tensorflow.python.framework.errors_impl.UnknownError: Could not start gRPC server\n",
+        ExceptionInfo.ExceptionSource.DRIVER, 5, "fakeURL");
+    TonYExceptionFingerprinting tonyEF = new TonYExceptionFingerprinting(null, null);
+    tonyEF.get_exceptionInfoList().add(exceptionInfo);
+    assertEquals("TONY_INFRA_ERROR", tonyEF.classifyException());
+  }
+
+  @Test
+  public void testTonyCategorizationTensorFlowError() {
+    ExceptionInfo exceptionInfo = new ExceptionInfo(1, "test",
+        "usERKNS1_4ArgsESB_RKNS_6TensorEbEE+0xbb)[0x7f5a30faedbb]\n"
+            + "*** Error in `venv/Python/bin/python': corrupted double-linked list: 0x00007f4fc21857c0 \n",
+        ExceptionInfo.ExceptionSource.DRIVER, 5, "fakeURL");
+    TonYExceptionFingerprinting tonyEF = new TonYExceptionFingerprinting(null, null);
+    tonyEF.get_exceptionInfoList().add(exceptionInfo);
+    assertEquals("TENSORFLOW_ERROR", tonyEF.classifyException());
+    tonyEF.get_exceptionInfoList().add(new ExceptionInfo(1, "__exit__\n" + "    c_api.TF_GetCode(self.status.status))\n"
+        + "tensorflow.python.framework.errors_impl.UnknownError: Could not start gRPC server\n",
+        "__exit__\n" + "    c_api.TF_GetCode(self.status.status))\n"
+            + "tensorflow.python.framework.errors_impl.UnknownError: Could not start gRPC server\n",
+        ExceptionInfo.ExceptionSource.DRIVER, 3, "fakeURL"));
+    //Since Tony infra error have higher priority.
+    assertEquals("TONY_INFRA_ERROR", tonyEF.classifyException());
+  }
+
+  @Test
+  public void testTonyCategorizationUserError() {
+    ExceptionInfo exceptionInfo = new ExceptionInfo(1, "test",
+        "keyError: field does not exist",
+        ExceptionInfo.ExceptionSource.DRIVER, 5, "fakeURL");
+    TonYExceptionFingerprinting tonyEF = new TonYExceptionFingerprinting(null, null);
+    tonyEF.get_exceptionInfoList().add(exceptionInfo);
+    assertEquals("USER_ERROR/PYTHON_ERROR", tonyEF.classifyException());
+    tonyEF.get_exceptionInfoList().clear();
+    tonyEF.get_exceptionInfoList().add(new ExceptionInfo(1, "test",
+        "net.lingala.zip4j.exception.ZipException: Probably not a zip file or a corrupted zip file\n",
+        ExceptionInfo.ExceptionSource.DRIVER, 3, "fakeURL"));
+    //Since Tony infra error have higher priority.
+    assertEquals("USER_ERROR/ZIP_EXCEPTION", tonyEF.classifyException());
+
+    tonyEF.get_exceptionInfoList().clear();
+    tonyEF.get_exceptionInfoList().add(new ExceptionInfo(1, "test",
+        "hdfsPread: NewByteArray error:\n" + "java.lang.OutOfMemoryError: Java heap space\n",
+        ExceptionInfo.ExceptionSource.DRIVER, 3, "fakeURL"));
+    //Since Tony infra error have higher priority.
+    assertEquals("USER_ERROR/OUT_OF_MEMORY", tonyEF.classifyException());
+
+    tonyEF.get_exceptionInfoList().clear();
+    tonyEF.get_exceptionInfoList().add(new ExceptionInfo(1, "test",
+        " File \"./tensorflow-starter-kit.pyz/_bootstrap/interpreter.py\", line 12, in _exec_function\n"
+            + "  File \"linkedin/tensorflowstarterkit/tony/mnist_single_node_tony.py\", line 17, in <module>\n"
+            + "    exec(open(activate_this).read(), dict(__file__=activate_this))\n"
+            + "FileNotFoundError: [Errno 2] No such file or directory: './venv/Python/bin/activate_this.py'\n",
+        ExceptionInfo.ExceptionSource.DRIVER, 3, "fakeURL"));
+    //Since Tony infra error have higher priority.
+    assertEquals("USER_ERROR/FILE_NOT_FOUND", tonyEF.classifyException());
+
+
+    TonYExceptionFingerprinting tonyEFNoData = new TonYExceptionFingerprinting(null, null);
+    assertEquals("CANNOT CLASSIFY DATA", tonyEFNoData.classifyException());
+
+  }
+
 
   private String getFakeResponse(String path) {
     try {

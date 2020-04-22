@@ -83,6 +83,7 @@ public class Web extends Controller {
   private static final int SEARCH_DEFAULT_PAGE_LIMIT = 25;
   private static final int SEARCH_APPLICATION_MAX_OFFSET = 500;
   private static final String NOT_APPLICABLE = "NA";
+  private static final String UNKNOWN_CLASSIFICATION = "UNKNOWN";
 
 
   private static long _lastFetch = 0;
@@ -1895,6 +1896,8 @@ public class Web extends Controller {
     }
   }
 
+
+
   /**
    * Maps the sort key to the actual field values
    * @param sortKey The sortKey
@@ -2009,6 +2012,7 @@ public class Web extends Controller {
         taskExceptionsArray.add(task);
       }
       child.add(JsonKeys.TASKS, taskExceptionsArray);
+      child.addProperty(JsonKeys.EXCEPTION_CLASSIFICATION, UNKNOWN_CLASSIFICATION);
       mrJobExceptionArray.add(child);
     }
 
@@ -2033,6 +2037,14 @@ public class Web extends Controller {
            && jobsExceptionFingerPrinting.logSourceInformation.length() > 0) {
          jobException.addProperty(JsonKeys.EXCEPTION_LOG_SOURCE, jobsExceptionFingerPrinting.logSourceInformation);
        }
+       if (jobsExceptionFingerPrinting.classification != null
+           && jobsExceptionFingerPrinting.classification.length() > 0) {
+         jobException.addProperty(JsonKeys.EXCEPTION_CLASSIFICATION, jobsExceptionFingerPrinting.classification);
+       }
+       else{
+         jobException.addProperty(JsonKeys.EXCEPTION_CLASSIFICATION, UNKNOWN_CLASSIFICATION);
+       }
+
        jobException.add(JsonKeys.TASKS, new JsonArray());
        jobExceptionInfoArray.add(jobException);
      }

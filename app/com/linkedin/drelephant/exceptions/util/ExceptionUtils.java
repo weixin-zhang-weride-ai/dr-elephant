@@ -16,6 +16,9 @@
 
 package com.linkedin.drelephant.exceptions.util;
 
+
+import com.linkedin.drelephant.exceptions.ExceptionCategorizationConfiguration;
+import com.linkedin.drelephant.util.Utils;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -27,6 +30,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.text.similarity.CosineDistance;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.log4j.Logger;
+import org.w3c.dom.Document;
 
 import static com.linkedin.drelephant.exceptions.util.Constant.*;
 import static com.linkedin.drelephant.exceptions.util.ExceptionUtils.ConfigurationBuilder.*;
@@ -41,7 +45,7 @@ public class ExceptionUtils {
   static boolean debugEnabled = logger.isDebugEnabled();
   private static final List<Pattern> patterns = new ArrayList<Pattern>();
   private static String jobNameRegex = ".*&job=(.*)&.*";
-  private static  Pattern jobNamePattern = Pattern.compile(jobNameRegex);
+  private static Pattern jobNamePattern = Pattern.compile(jobNameRegex);
 
   static {
     for (String regex : ConfigurationBuilder.REGEX_FOR_EXCEPTION_IN_LOGS.getValue()) {
@@ -145,6 +149,7 @@ public class ExceptionUtils {
     public static EFConfiguration<Boolean> SHOULD_PROCESS_AZKABAN_LOG = null;
 
     public static EFConfiguration<Integer> MAX_LOG_SIMILARITY_PERCENTAGE_THRESHOLD = null;
+    public static EFConfiguration<ExceptionCategorizationConfiguration> EXCEPTION_CATEGORIZATION_CONFIGURATION = null;
 
     private static final String[] DEFAULT_REGEX_FOR_EXCEPTION_IN_LOGS =
         {"^.+Exception.*", "^.+Error.*", ".*Container\\s+killed.*"};
@@ -171,6 +176,8 @@ public class ExceptionUtils {
 
     private static final String[] DEFAULT_REDUNDANT_LOG_PATTERN_REGEX_IN_AZKABAN_LOGS =
         {"(?m)(^\\d{2}-\\d{2}-\\d{4} (\\d{2}:?){3} [A-Z]{3} .+ (INFO|WARN|DEBUG) - )"};
+
+    private static final String EXCEPTION_CATEGORIZATION_CONF_FILE_NAME = "EFClassificationConf.xml";
 
     public static void buildConfigurations(Configuration configuration) {
       FIRST_THRESHOLD_LOG_LENGTH_IN_BYTES =
@@ -340,6 +347,19 @@ public class ExceptionUtils {
         logger.debug(NUMBER_OF_STACKTRACE_LINE);
         logger.debug(JHS_TIME_OUT);
       }
+      buildExceptionClassificationConfiguration();
+    }
+
+    /**
+     * Build the exception categorization data from configuration file
+     */
+    private static void buildExceptionClassificationConfiguration() {
+      Document document = Utils.loadXMLDoc(EXCEPTION_CATEGORIZATION_CONF_FILE_NAME);
+      ExceptionCategorizationConfiguration exceptionCategorizationConfiguration =
+          new ExceptionCategorizationConfiguration(document.getDocumentElement());
+      EXCEPTION_CATEGORIZATION_CONFIGURATION =
+          new EFConfiguration<ExceptionCategorizationConfiguration>().setValue(exceptionCategorizationConfiguration)
+              .setDoc("Rules for exception classification ");
     }
   }
 }
