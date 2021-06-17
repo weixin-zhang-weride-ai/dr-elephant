@@ -81,7 +81,7 @@ public class PSOParamGeneratorTest {
     }
   }
 
-  @Test
+//  @Test
   public void generateParamSetTest() {
     running(testServer(TEST_SERVER_PORT, fakeApp), new Runnable() {
       public void run() {
@@ -195,7 +195,7 @@ public class PSOParamGeneratorTest {
     });
   }
 
-  @Test
+//  @Test
   public void getParamsTest() {
     running(testServer(TEST_SERVER_PORT, fakeApp), new Runnable() {
       public void run() {
