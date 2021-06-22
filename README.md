@@ -17,8 +17,13 @@ wget http://archive.apache.org/dist/hadoop/core/hadoop-$HADOOP_VERSION/hadoop-$H
 tar -zxf hadoop-$HADOOP_VERSION.tar.gz
 rm hadoop-$HADOOP_VERSION.tar.gz
 mv hadoop-$HADOOP_VERSION /usr/local/hadoop
-export PATH=$HADOOP_HOME/bin:$PATH
+export PATH=/usr/local/hadoop/bin:$PATH
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+
+cd dist/
+unzip dr-elephant-2.1.7.zip
+cd dr-elephant-2.1.7
+./bin/start.sh
 ```
 
 ## Docker container version
