@@ -1,0 +1,31 @@
+version: '2'
+
+volumes:
+  # mysql-data:
+  #   external: false
+  dr-elephant-logs:
+    external: false
+
+services:
+  dr-elephant-mysql:
+    image: mysql:5.7
+    command: --max_allowed_packet=256M --max_connections=400
+    environment:
+      MYSQL_DATABASE: drelephant
+      MYSQL_ROOT_PASSWORD: drelephant
+    restart: always
+    # volumes:
+    #  - mysql-data:/var/lib/mysql
+
+  dr-elephant:
+    build:
+      context: .
+    ports:
+      - 9000:8080
+    stdin_open: true
+    depends_on:
+      - dr-elephant-mysql
+    volumes:
+      - ./hadoop-conf:/usr/local/hadoop/etc/hadoop/
+      - dr-elephant-logs:/dr-elephant/logs
+      - ./container-config/elephant.conf:/dr-elephant/app-conf/elephant.conf
