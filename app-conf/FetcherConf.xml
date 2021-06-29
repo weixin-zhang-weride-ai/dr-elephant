@@ -116,7 +116,15 @@
     </params>
   </fetcher>
   -->
-
+    <fetcher>
+        <applicationtype>spark</applicationtype>
+        <classname>com.linkedin.drelephant.spark.fetchers.SparkFetcher</classname>
+        <params>
+            <use_rest_for_eventlogs>true</use_rest_for_eventlogs>
+            <event_log_size_limit_in_mb>500</event_log_size_limit_in_mb>
+            <event_log_location_uri>https://aws-spark.jing-chi.com/spark-history</event_log_location_uri>
+        </params>
+    </fetcher>
   <!--
     Fetcher for TonY jobs. To use this, you must set the TONY_CONF_DIR environment variable to the directory
     containing the tony-site.xml file.

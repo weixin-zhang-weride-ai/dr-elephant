@@ -7,28 +7,6 @@
 
 **Dr. Elephant** is a performance monitoring and tuning tool for Hadoop and Spark. It automatically gathers all the metrics, runs analysis on them, and presents them in a simple way for easy consumption. Its goal is to improve developer productivity and increase cluster efficiency by making it easier to tune the jobs. It analyzes the Hadoop and Spark jobs using a set of pluggable, configurable, rule-based heuristics that provide insights on how a job performed, and then uses the results to make suggestions about how to tune the job to make it perform more efficiently.
 
-## Quick Start from weixin.zhang@weride.ai
-```
-docker run -e MYSQL_ROOT_PASSWORD=123456 -p 127.0.0.1:3306:3306 -d mysql:5.7
-mysql -u root -p123456 -h 127.0.0.1 -e"create database drelephant;"
-./compile.sh
-HADOOP_VERSION=2.7.3
-wget http://archive.apache.org/dist/hadoop/core/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz
-tar -zxf hadoop-$HADOOP_VERSION.tar.gz
-rm hadoop-$HADOOP_VERSION.tar.gz
-mv hadoop-$HADOOP_VERSION /usr/local/hadoop
-export PATH=/usr/local/hadoop/bin:$PATH
-export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-
-cd dist/
-unzip dr-elephant-2.1.7.zip
-cd dr-elephant-2.1.7
-./bin/start.sh
-```
-
-## Docker container version
-[Link](https://github.com/weixin-zhang-weride-ai/dr-elephant-docker)
-
 ## Documentation
 
 For more information on Dr. Elephant, check the wiki pages [here](https://github.com/linkedin/dr-elephant/wiki).
